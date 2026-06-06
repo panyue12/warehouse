@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>仓库库存管理系统</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Microsoft YaHei', sans-serif; background: #f0f2f5; color: #333; }
+.header { background: #1a3a5c; color: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { font-size: 20px; }
+.tabs { display: flex; background: #fff; border-bottom: 2px solid #e8e8e8; padding: 0 24px; overflow-x: auto; }
+.tab { padding: 12px 20px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: .2s; font-size: 14px; white-space: nowrap; }
+.tab:hover { color: #1a3a5c; }
+.tab.active { color: #1a3a5c; border-bottom-color: #1a3a5c; font-weight: bold; }
+.content { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+.panel { display: none; }
+.panel.active { display: block; }
+.card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.card h3 { margin-bottom: 16px; font-size: 16px; color: #1a3a5c; }
+.form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+.form-group { display: flex; flex-direction: column; min-width: 120px; }
+.form-group label { font-size: 12px; color: #666; margin-bottom: 4px; }
+.form-group input, .form-group select { padding: 8px 10px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; outline: none; transition: .2s; }
+.form-group input:focus, .form-group select:focus { border-color: #1a3a5c; }
+.btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; transition: .2s; white-space: nowrap; }
+.btn-primary { background: #1a3a5c; color: #fff; }
+.btn-primary:hover { background: #254b73; }
+.btn-success { background: #52c41a; color: #fff; }
+.btn-success:hover { background: #49b018; }
+.btn-danger { background: #ff4d4f; color: #fff; }
+.btn-danger:hover { background: #e04345; }
+.btn-warning { background: #faad14; color: #fff; }
+.btn-warning:hover { background: #e09d12; }
+.btn-outline { background: #fff; color: #1a3a5c; border: 1px solid #1a3a5c; }
+.btn-outline:hover { background: #f0f5fa; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-xs { padding: 2px 8px; font-size: 11px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table th { background: #fafafa; padding: 10px 8px; text-align: left; border-bottom: 1px solid #e8e8e8; font-weight: 600; white-space: nowrap; }
+table td { padding: 8px; border-bottom: 1px solid #f0f0f0; }
+table tr:hover td { background: #fafafa; }
+.stats { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat-card { background: #fff; border-radius: 8px; padding: 16px 20px; flex: 1; min-width: 180px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.stat-card .label { font-size: 12px; color: #999; }
+.stat-card .value { font-size: 24px; font-weight: bold; color: #1a3a5c; margin-top: 4px; }
+.low-stock { color: #ff4d4f !important; }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.45); z-index: 1000; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: #fff; border-radius: 8px; padding: 24px; width: 90%; max-width: 600px; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.modal h3 { margin-bottom: 16px; }
+.upload-area { border: 2px dashed #d9d9d9; border-radius: 8px; padding: 32px; text-align: center; cursor: pointer; transition: .2s; margin-bottom: 12px; }
+.upload-area:hover { border-color: #1a3a5c; background: #fafafa; }
+.upload-area.has-file { border-color: #52c41a; background: #f6ffed; }
+.upload-area .icon { font-size: 36px; margin-bottom: 8px; }
+.upload-area .text { font-size: 14px; color: #666; }
+.upload-area .file-name { font-size: 13px; color: #52c41a; font-weight: bold; margin-top: 4px; }
+.import-result { font-size: 13px; padding: 10px; border-radius: 4px; margin-top: 8px; display: none; }
+.import-result.success { display: block; background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+.import-result.error { display: block; background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+.badge-green { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+.badge-red { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+.badge-blue { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+.info-tip { font-size: 12px; color: #999; margin-top: 4px; }
+.empty-state { text-align: center; padding: 40px; color: #999; }
+.template-link { color: #1890ff; cursor: pointer; font-size: 13px; text-decoration: underline; display: inline-block; margin-left: 8px; }
+.template-link:hover { color: #40a9ff; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>仓库库存管理系统</h1>
+  <div>
+    <button class="btn btn-warning btn-sm" onclick="exportData()">备份数据(JSON)</button>
+    <button class="btn btn-success btn-sm" onclick="exportExcel()">导出Excel</button>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFile').click()">恢复数据</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    <button class="btn btn-danger btn-sm" onclick="resetAll()">清空数据</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('dashboard')">仪表盘</div>
+  <div class="tab" onclick="switchTab('materials')">配料管理</div>
+  <div class="tab" onclick="switchTab('products')">成品管理</div>
+  <div class="tab" onclick="switchTab('bom')">BOM物料清单</div>
+  <div class="tab" onclick="switchTab('productIn')">成品入库</div>
+  <div class="tab" onclick="switchTab('productOut')">成品出库</div>
+  <div class="tab" onclick="switchTab('materialIn')">配料入库</div>
+  <div class="tab" onclick="switchTab('materialOut')">配料出库</div>
+</div>
+
+<div class="content">
+
+<!-- 仪表盘 -->
+<div id="panel-dashboard" class="panel active">
+  <div class="stats" id="dashboardStats"></div>
+  <div class="card">
+    <h3>最近操作记录</h3>
+    <div id="recentLogs"></div>
+  </div>
+</div>
+
+<!-- 配料管理 -->
+<div id="panel-materials" class="panel">
+  <div class="card">
+    <h3>添加配料</h3>
+    <div class="form-row">
+      <div class="form-group"><label>货号</label><input id="matCode" placeholder="例如: M001"></div>
+      <div class="form-group"><label>品名</label><input id="matName" placeholder="例如: 螺丝"></div>
+      <div class="form-group"><label>单位</label><input id="matUnit" placeholder="例如: 个" style="width:80px"></div>
+      <div class="form-group"><label>初始库存</label><input id="matStock" type="number" value="0" style="width:100px"></div>
+      <button class="btn btn-primary" onclick="addMaterial()" style="align-self:flex-end">添加配料</button>
+      <button class="btn btn-success" onclick="showImportModal('material')" style="align-self:flex-end">Excel批量导入</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>配料库存表</h3>
+    <table><thead><tr><th>货号</th><th>品名</th><th>单位</th><th>当前库存</th><th>操作</th></tr></thead>
+    <tbody id="materialTable"></tbody></table>
+  </div>
+</div>
+
+<!-- 成品管理 -->
+<div id="panel-products" class="panel">
+  <div class="card">
+    <h3>添加成品</h3>
+    <div class="form-row">
+      <div class="form-group"><label>货号</label><input id="prodCode" placeholder="例如: P001"></div>
+      <div class="form-group"><label>品名</label><input id="prodName" placeholder="例如: 桌子"></div>
+      <div class="form-group"><label>单位</label><input id="prodUnit" placeholder="例如: 张" style="width:80px"></div>
+      <div class="form-group"><label>初始库存</label><input id="prodStock" type="number" value="0" style="width:100px"></div>
+      <button class="btn btn-primary" onclick="addProduct()" style="align-self:flex-end">添加成品</button>
+      <button class="btn btn-success" onclick="showImportModal('product')" style="align-self:flex-end">Excel批量导入</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>成品库存表</h3>
+    <table><thead><tr><th>货号</th><th>品名</th><th>单位</th><th>当前库存</th><th>操作</th></tr></thead>
+    <tbody id="productTable"></tbody></table>
+  </div>
+</div>
+
+<!-- BOM物料清单 -->
+<div id="panel-bom" class="panel">
+  <div class="card">
+    <h3>添加BOM关系 <span class="info-tip">(定义每个成品需要消耗哪些配料及数量)</span></h3>
+    <div class="form-row">
+      <div class="form-group"><label>成品</label><select id="bomProduct" style="width:180px"></select></div>
+      <div class="form-group"><label>配料</label><select id="bomMaterial" style="width:180px"></select></div>
+      <div class="form-group"><label>消耗数量</label><input id="bomQty" type="number" step="0.01" value="1" style="width:100px"></div>
+      <button class="btn btn-primary" onclick="addBOM()" style="align-self:flex-end">添加BOM</button>
+      <button class="btn btn-success" onclick="showImportModal('bom')" style="align-self:flex-end">Excel批量导入</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>BOM物料清单</h3>
+    <table><thead><tr><th>成品货号</th><th>成品品名</th><th>配料货号</th><th>配料品名</th><th>消耗数量</th><th>操作</th></tr></thead>
+    <tbody id="bomTable"></tbody></table>
+  </div>
+</div>
+
+<!-- 成品入库 -->
+<div id="panel-productIn" class="panel">
+  <div class="card">
+    <h3>成品入库 <span class="info-tip">(入库时自动根据BOM扣减配料库存)</span></h3>
+    <div class="form-row">
+      <div class="form-group"><label>成品</label><select id="piProduct" style="width:180px" onchange="onProductInSelect()"></select></div>
+      <div class="form-group"><label>入库数量</label><input id="piQty" type="number" value="1" style="width:100px"></div>
+      <div class="form-group"><label>操作人</label><input id="piOperator" placeholder="操作人"></div>
+      <div class="form-group"><label>备注</label><input id="piNote" placeholder="备注"></div>
+      <div class="form-group"><label style="white-space:nowrap"><input type="checkbox" id="piSkipBOM" style="width:auto;margin-right:2px">不自动扣减配料</label></div>
+      <button class="btn btn-primary" onclick="productInbound()" style="align-self:flex-end">确认入库</button>
+      <button class="btn btn-success" onclick="showImportModal('productIn')" style="align-self:flex-end">Excel批量导入</button>
+    </div>
+    <div id="bomPreview" style="margin-top:8px;font-size:12px;color:#666"></div>
+  </div>
+  <div class="card">
+    <h3>成品入库记录</h3>
+    <table><thead><tr><th>时间</th><th>货号</th><th>品名</th><th>数量</th><th>操作人</th><th>备注</th></tr></thead>
+    <tbody id="productInTable"></tbody></table>
+  </div>
+</div>
+
+<!-- 成品出库 -->
+<div id="panel-productOut" class="panel">
+  <div class="card">
+    <h3>成品出库</h3>
+    <div class="form-row">
+      <div class="form-group"><label>成品</label><select id="poProduct" style="width:180px" onchange="onProductOutSelect()"></select></div>
+      <div class="form-group"><label>出库数量</label><input id="poQty" type="number" value="1" style="width:100px"></div>
+      <div class="form-group"><label>操作人</label><input id="poOperator" placeholder="操作人"></div>
+      <div class="form-group"><label>备注</label><input id="poNote" placeholder="备注"></div>
+      <button class="btn btn-danger" onclick="productOutbound()" style="align-self:flex-end">确认出库</button>
+      <button class="btn btn-success" onclick="showImportModal('productOut')" style="align-self:flex-end">Excel批量导入</button>
+    </div>
+    <div id="poStockInfo" style="font-size:12px;color:#999;margin-top:4px"></div>
+  </div>
+  <div class="card">
+    <h3>成品出库记录</h3>
+    <table><thead><tr><th>时间</th><th>货号</th><th>品名</th><th>数量</th><th>操作人</th><th>备注</th></tr></thead>
+    <tbody id="productOutTable"></tbody></table>
+  </div>
+</div>
+
+<!-- 配料入库 -->
+<div id="panel-materialIn" class="panel">
+  <div class="card">
+    <h3>配料入库登记</h3>
+    <div class="form-row">
+      <div class="form-group"><label>配料</label><select id="miMaterial" style="width:180px"></select></div>
+      <div class="form-group"><label>入库数量</label><input id="miQty" type="number" value="1" style="width:100px"></div>
+      <div class="form-group"><label>操作人</label><input id="miOperator" placeholder="操作人"></div>
+      <div class="form-group"><label>备注</label><input id="miNote" placeholder="备注"></div>
+      <button class="btn btn-primary" onclick="materialInbound()" style="align-self:flex-end">确认入库</button>
+      <button class="btn btn-success" onclick="showImportModal('materialIn')" style="align-self:flex-end">Excel批量导入</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>配料入库记录</h3>
+    <table><thead><tr><th>时间</th><th>货号</th><th>品名</th><th>数量</th><th>操作人</th><th>备注</th></tr></thead>
+    <tbody id="materialInTable"></tbody></table>
+  </div>
+</div>
+
+<!-- 配料出库 -->
+<div id="panel-materialOut" class="panel">
+  <div class="card">
+    <h3>配料出库登记 <span class="info-tip">(手动出库，不含成品入库时的自动扣减)</span></h3>
+    <div class="form-row">
+      <div class="form-group"><label>配料</label><select id="moMaterial" style="width:180px"></select></div>
+      <div class="form-group"><label>出库数量</label><input id="moQty" type="number" value="1" style="width:100px"></div>
+      <div class="form-group"><label>操作人</label><input id="moOperator" placeholder="操作人"></div>
+      <div class="form-group"><label>备注</label><input id="moNote" placeholder="备注"></div>
+      <button class="btn btn-danger" onclick="materialOutbound()" style="align-self:flex-end">确认出库</button>
+      <button class="btn btn-success" onclick="showImportModal('materialOut')" style="align-self:flex-end">Excel批量导入</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>配料出库记录</h3>
+    <table><thead><tr><th>时间</th><th>货号</th><th>品名</th><th>数量</th><th>操作人</th><th>备注</th><th>类型</th></tr></thead>
+    <tbody id="materialOutTable"></tbody></table>
+  </div>
+</div>
+
+</div>
+
+<!-- 编辑弹窗 -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3 id="editModalTitle">编辑</h3>
+    <div id="editForm"></div>
+    <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeEditModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Excel导入弹窗 -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <h3 id="importModalTitle">Excel批量导入</h3>
+    <div style="margin-bottom:12px">
+      <span style="font-size:13px;color:#666">下载模板：</span>
+      <span class="template-link" id="templateLink" onclick="downloadTemplate()">下载Excel模板</span>
+    </div>
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('excelFile').click()">
+      <div class="icon">&#128196;</div>
+      <div class="text">点击选择 .xlsx 文件，或拖拽文件到此处</div>
+      <div class="file-name" id="fileName"></div>
+    </div>
+    <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none" onchange="onFileSelected(event)">
+    <div class="import-result" id="importResult"></div>
+    <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeImportModal()">取消</button>
+      <button class="btn btn-primary" id="importBtn" onclick="doImport()" disabled>确认导入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 数据存储 ====================
+const STORAGE_KEY = 'warehouse_system_data';
+
+function getData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) return JSON.parse(raw);
+  return { materials: [], products: [], bom: [], productIn: [], productOut: [], materialIn: [], materialOut: [], logs: [] };
+}
+
+function saveData(data) {
+  // 清理旧快照，只保留最近 MAX_SNAPSHOTS 条的快照，节省存储空间
+  data.logs.forEach((l, i) => { if (i >= MAX_SNAPSHOTS) l.snapshot = null; });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+const MAX_SNAPSHOTS = 20;
+
+function addLog(msg) {
+  const data = getData();
+  // 保存完整数据快照（排除日志和快照本身，避免嵌套膨胀）
+  const snapshot = {
+    materials: JSON.parse(JSON.stringify(data.materials)),
+    products: JSON.parse(JSON.stringify(data.products)),
+    bom: JSON.parse(JSON.stringify(data.bom)),
+    productIn: JSON.parse(JSON.stringify(data.productIn)),
+    productOut: JSON.parse(JSON.stringify(data.productOut)),
+    materialIn: JSON.parse(JSON.stringify(data.materialIn)),
+    materialOut: JSON.parse(JSON.stringify(data.materialOut))
+  };
+  data.logs.unshift({ time: new Date().toLocaleString(), msg, snapshot });
+  if (data.logs.length > 50) data.logs.length = 50;
+  saveData(data);
+}
+
+// ==================== Excel导入相关 ====================
+let importType = '';
+let importFileData = null;
+
+function showImportModal(type) {
+  importType = type;
+  importFileData = null;
+
+  const titles = { material: '批量导入配料', product: '批量导入成品', bom: '批量导入BOM', productIn: '批量导入成品入库', productOut: '批量导入成品出库', materialIn: '批量导入配料入库', materialOut: '批量导入配料出库' };
+  document.getElementById('importModalTitle').textContent = titles[type];
+  document.getElementById('fileName').textContent = '';
+  document.getElementById('uploadArea').classList.remove('has-file');
+  document.getElementById('importBtn').disabled = true;
+  document.getElementById('importResult').className = 'import-result';
+  document.getElementById('importResult').textContent = '';
+  document.getElementById('excelFile').value = '';
+  document.getElementById('importModal').classList.add('show');
+}
+
+function closeImportModal() {
+  document.getElementById('importModal').classList.remove('show');
+  importType = '';
+  importFileData = null;
+}
+
+let templateLinkClicked = false;
+function downloadTemplate() {
+  const wb = XLSX.utils.book_new();
+
+  if (importType === 'material') {
+    const ws_data = [['货号', '品名', '单位', '初始库存'], ['M001', '螺丝', '个', 100], ['M002', '木板', '块', 50]];
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!cols'] = [{wch:12},{wch:16},{wch:8},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, '配料');
+  } else if (importType === 'product') {
+    const ws_data = [['货号', '品名', '单位', '初始库存'], ['P001', '桌子', '张', 0], ['P002', '椅子', '把', 0]];
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!cols'] = [{wch:12},{wch:16},{wch:8},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, '成品');
+  } else if (importType === 'bom') {
+    const ws_data = [['成品货号', '配料货号', '消耗数量'], ['P001', 'M001', 2], ['P001', 'M002', 4], ['P002', 'M001', 3]];
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!cols'] = [{wch:14},{wch:14},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, 'BOM');
+  } else if (importType === 'productIn') {
+    const ws_data = [['成品货号', '入库数量', '操作人', '备注', '是否自动扣减配料(是/否)'], ['P001', 10, '张三', '', '是']];
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!cols'] = [{wch:14},{wch:10},{wch:10},{wch:16},{wch:18}];
+    XLSX.utils.book_append_sheet(wb, ws, '成品入库');
+  } else if (importType === 'productOut') {
+    const ws_data = [['成品货号', '出库数量', '操作人', '备注'], ['P001', 5, '张三', '']];
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!cols'] = [{wch:14},{wch:10},{wch:10},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, ws, '成品出库');
+  } else if (importType === 'materialIn') {
+    const ws_data = [['配料货号', '入库数量', '操作人', '备注'], ['M001', 100, '张三', '']];
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!cols'] = [{wch:14},{wch:10},{wch:10},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, ws, '配料入库');
+  } else if (importType === 'materialOut') {
+    const ws_data = [['配料货号', '出库数量', '操作人', '备注'], ['M001', 20, '张三', '']];
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!cols'] = [{wch:14},{wch:10},{wch:10},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, ws, '配料出库');
+  }
+
+  XLSX.writeFile(wb, `${importType}_导入模板.xlsx`);
+}
+
+function onFileSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const wb = XLSX.read(ev.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      importFileData = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (!importFileData || importFileData.length < 2) {
+        document.getElementById('importResult').className = 'import-result error';
+        document.getElementById('importResult').textContent = '文件内容为空或只有表头';
+        document.getElementById('importBtn').disabled = true;
+        return;
+      }
+      document.getElementById('fileName').textContent = file.name + ' (' + (importFileData.length - 1) + ' 条数据)';
+      document.getElementById('uploadArea').classList.add('has-file');
+      document.getElementById('importBtn').disabled = false;
+      document.getElementById('importResult').className = 'import-result';
+      document.getElementById('importResult').textContent = '';
+    } catch (err) {
+      document.getElementById('importResult').className = 'import-result error';
+      document.getElementById('importResult').textContent = '文件读取失败，请确认是有效的.xlsx文件';
+      document.getElementById('importBtn').disabled = true;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function doImport() {
+  if (!importFileData) return;
+
+  const data = getData();
+  const rows = importFileData.slice(1).filter(r => r && r.some(c => c !== undefined && c !== null && c !== ''));
+  let added = 0, skipped = 0, errors = [];
+
+  rows.forEach((row, i) => {
+    const rowNum = i + 2;
+
+    if (importType === 'material') {
+      const code = String(row[0] || '').trim();
+      const name = String(row[1] || '').trim();
+      const unit = String(row[2] || '').trim();
+      const stock = parseInt(row[3]) || 0;
+      if (!code || !name) { errors.push(`第${rowNum}行：货号或品名为空`); skipped++; return; }
+      if (data.materials.find(m => m.code === code)) { skipped++; return; }
+      data.materials.push({ code, name, unit, stock });
+      added++;
+    } else if (importType === 'product') {
+      const code = String(row[0] || '').trim();
+      const name = String(row[1] || '').trim();
+      const unit = String(row[2] || '').trim();
+      const stock = parseInt(row[3]) || 0;
+      if (!code || !name) { errors.push(`第${rowNum}行：货号或品名为空`); skipped++; return; }
+      if (data.products.find(p => p.code === code)) { skipped++; return; }
+      data.products.push({ code, name, unit, stock });
+      added++;
+    } else if (importType === 'bom') {
+      const productCode = String(row[0] || '').trim();
+      const materialCode = String(row[1] || '').trim();
+      const quantity = parseFloat(row[2]);
+      if (!productCode || !materialCode) { errors.push(`第${rowNum}行：成品货号或配料货号为空`); skipped++; return; }
+      if (!quantity || quantity <= 0) { errors.push(`第${rowNum}行：消耗数量无效`); skipped++; return; }
+      if (!data.products.find(p => p.code === productCode)) { errors.push(`第${rowNum}行：成品货号 "${productCode}" 不存在`); skipped++; return; }
+      if (!data.materials.find(m => m.code === materialCode)) { errors.push(`第${rowNum}行：配料货号 "${materialCode}" 不存在`); skipped++; return; }
+      if (data.bom.find(b => b.productCode === productCode && b.materialCode === materialCode)) { skipped++; return; }
+      data.bom.push({ productCode, materialCode, quantity });
+      added++;
+    } else if (importType === 'productIn') {
+      const code = String(row[0] || '').trim();
+      const qty = parseInt(row[1]) || 0;
+      const operator = String(row[2] || '').trim();
+      const note = String(row[3] || '').trim();
+      const autoDeduct = String(row[4] || '').trim();
+      const skipBOM = autoDeduct === '否' || autoDeduct === '不' || autoDeduct.toLowerCase() === 'no' || autoDeduct === '0';
+      if (!code) { errors.push(`第${rowNum}行：成品货号为空`); skipped++; return; }
+      if (qty <= 0) { errors.push(`第${rowNum}行：入库数量无效`); skipped++; return; }
+      const prod = data.products.find(p => p.code === code);
+      if (!prod) { errors.push(`第${rowNum}行：成品货号 "${code}" 不存在`); skipped++; return; }
+      if (!skipBOM) {
+        const bomItems = data.bom.filter(b => b.productCode === code);
+        const insufficient = [];
+        bomItems.forEach(b => {
+          const mat = data.materials.find(m => m.code === b.materialCode);
+          if (!mat || mat.stock < b.quantity * qty) {
+            insufficient.push(`${b.materialCode}：需要${b.quantity * qty}，库存${mat ? mat.stock : 0}`);
+          }
+        });
+        if (insufficient.length > 0) {
+          errors.push(`第${rowNum}行：配料库存不足 — ${insufficient.join('; ')}`);
+          skipped++; return;
+        }
+        const now = new Date().toLocaleString();
+        bomItems.forEach(b => {
+          const mat = data.materials.find(m => m.code === b.materialCode);
+          mat.stock -= b.quantity * qty;
+          data.materialOut.push({ time: now, materialCode: mat.code, materialName: mat.name, quantity: b.quantity * qty, operator, note: `成品入库自动扣减：${code} ×${qty}`, type: 'auto' });
+        });
+        prod.stock += qty;
+        data.productIn.push({ time: now, productCode: code, productName: prod.name, quantity: qty, operator, note });
+      } else {
+        const now = new Date().toLocaleString();
+        prod.stock += qty;
+        data.productIn.push({ time: now, productCode: code, productName: prod.name, quantity: qty, operator, note: note + ' (未扣减配料)' });
+      }
+      added++;
+    } else if (importType === 'productOut') {
+      const code = String(row[0] || '').trim();
+      const qty = parseInt(row[1]) || 0;
+      const operator = String(row[2] || '').trim();
+      const note = String(row[3] || '').trim();
+      if (!code) { errors.push(`第${rowNum}行：成品货号为空`); skipped++; return; }
+      if (qty <= 0) { errors.push(`第${rowNum}行：出库数量无效`); skipped++; return; }
+      const prod = data.products.find(p => p.code === code);
+      if (!prod) { errors.push(`第${rowNum}行：成品货号 "${code}" 不存在`); skipped++; return; }
+      if (prod.stock < qty) { errors.push(`第${rowNum}行：库存不足，当前库存 ${prod.stock}`); skipped++; return; }
+      prod.stock -= qty;
+      data.productOut.push({ time: new Date().toLocaleString(), productCode: code, productName: prod.name, quantity: qty, operator, note });
+      added++;
+    } else if (importType === 'materialIn') {
+      const code = String(row[0] || '').trim();
+      const qty = parseInt(row[1]) || 0;
+      const operator = String(row[2] || '').trim();
+      const note = String(row[3] || '').trim();
+      if (!code) { errors.push(`第${rowNum}行：配料货号为空`); skipped++; return; }
+      if (qty <= 0) { errors.push(`第${rowNum}行：入库数量无效`); skipped++; return; }
+      const mat = data.materials.find(m => m.code === code);
+      if (!mat) { errors.push(`第${rowNum}行：配料货号 "${code}" 不存在`); skipped++; return; }
+      mat.stock += qty;
+      data.materialIn.push({ time: new Date().toLocaleString(), materialCode: code, materialName: mat.name, quantity: qty, operator, note });
+      added++;
+    } else if (importType === 'materialOut') {
+      const code = String(row[0] || '').trim();
+      const qty = parseInt(row[1]) || 0;
+      const operator = String(row[2] || '').trim();
+      const note = String(row[3] || '').trim();
+      if (!code) { errors.push(`第${rowNum}行：配料货号为空`); skipped++; return; }
+      if (qty <= 0) { errors.push(`第${rowNum}行：出库数量无效`); skipped++; return; }
+      const mat = data.materials.find(m => m.code === code);
+      if (!mat) { errors.push(`第${rowNum}行：配料货号 "${code}" 不存在`); skipped++; return; }
+      if (mat.stock < qty) { errors.push(`第${rowNum}行：库存不足，当前库存 ${mat.stock}`); skipped++; return; }
+      mat.stock -= qty;
+      data.materialOut.push({ time: new Date().toLocaleString(), materialCode: code, materialName: mat.name, quantity: qty, operator, note, type: 'manual' });
+      added++;
+    }
+  });
+
+  saveData(data);
+
+  const typeNames = { material: '配料', product: '成品', bom: 'BOM', productIn: '成品入库', productOut: '成品出库', materialIn: '配料入库', materialOut: '配料出库' };
+  addLog(`Excel批量导入${typeNames[importType]}：成功${added}条，跳过${skipped}条`);
+
+  const resultEl = document.getElementById('importResult');
+  let msg = `导入完成：成功 ${added} 条`;
+  if (skipped > 0) msg += `，跳过 ${skipped} 条（重复或已存在）`;
+  if (errors.length > 0) {
+    msg += '\n错误详情：\n' + errors.slice(0, 5).join('\n');
+    if (errors.length > 5) msg += `\n...还有 ${errors.length - 5} 条错误`;
+    resultEl.className = 'import-result error';
+  } else {
+    resultEl.className = 'import-result success';
+  }
+  resultEl.textContent = msg;
+
+  importFileData = null;
+  document.getElementById('importBtn').disabled = true;
+  document.getElementById('excelFile').value = '';
+  renderAll();
+}
+
+// 支持拖拽上传
+document.addEventListener('DOMContentLoaded', function() {
+  const area = document.getElementById('uploadArea');
+  if (area) {
+    area.addEventListener('dragover', function(e) { e.preventDefault(); area.style.borderColor = '#1a3a5c'; });
+    area.addEventListener('dragleave', function() { area.style.borderColor = '#d9d9d9'; });
+    area.addEventListener('drop', function(e) {
+      e.preventDefault();
+      area.style.borderColor = '#d9d9d9';
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        document.getElementById('excelFile').files = e.dataTransfer.files;
+        onFileSelected({ target: { files: [file] } });
+      }
+    });
+  }
+});
+
+// ==================== 渲染函数 ====================
+function renderAll() {
+  renderDashboard();
+  renderMaterials();
+  renderProducts();
+  renderBOM();
+  renderProductIn();
+  renderProductOut();
+  renderMaterialIn();
+  renderMaterialOut();
+  populateSelects();
+}
+
+function renderDashboard() {
+  const data = getData();
+  const totalMats = data.materials.length;
+  const totalProds = data.products.length;
+  let lowStock = 0;
+  data.materials.forEach(m => { if (m.stock < 10) lowStock++; });
+  const totalBOM = data.bom.length;
+
+  document.getElementById('dashboardStats').innerHTML = `
+    <div class="stat-card"><div class="label">配料种类</div><div class="value">${totalMats}</div></div>
+    <div class="stat-card"><div class="label">成品种类</div><div class="value">${totalProds}</div></div>
+    <div class="stat-card"><div class="label">BOM清单数</div><div class="value">${totalBOM}</div></div>
+    <div class="stat-card"><div class="label">低库存配料(&lt;10)</div><div class="value ${lowStock > 0 ? 'low-stock' : ''}">${lowStock}</div></div>
+  `;
+
+  const logsHtml = data.logs.length === 0
+    ? '<div class="empty-state">暂无操作记录</div>'
+    : data.logs.map((l, i) => `<div style="padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:13px;display:flex;justify-content:space-between;align-items:center"><span><span style="color:#999">${l.time}</span> — ${l.msg}</span><div style="flex-shrink:0;display:flex;gap:4px">${l.snapshot ? `<button class="btn btn-warning btn-xs" onclick="restoreSnapshot(${i})">回溯</button>` : ''}<button class="btn btn-danger btn-xs" onclick="deleteLog(${i})">删除</button></div></div>`).join('');
+  document.getElementById('recentLogs').innerHTML = logsHtml;
+}
+
+function renderMaterials() {
+  const data = getData();
+  const rows = data.materials.length === 0
+    ? '<tr><td colspan="5" class="empty-state">暂无配料，请添加</td></tr>'
+    : data.materials.map((m, i) => `<tr>
+        <td>${esc(m.code)}</td><td>${esc(m.name)}</td><td>${esc(m.unit)}</td>
+        <td><span class="${m.stock < 10 ? 'badge badge-red' : 'badge badge-green'}">${m.stock}</span></td>
+        <td><button class="btn btn-outline btn-xs" onclick="showEditModal('material',${i})">编辑</button> <button class="btn btn-danger btn-xs" onclick="deleteMaterial(${i})">删除</button></td>
+      </tr>`).join('');
+  document.getElementById('materialTable').innerHTML = rows;
+}
+
+function renderProducts() {
+  const data = getData();
+  const rows = data.products.length === 0
+    ? '<tr><td colspan="5" class="empty-state">暂无成品，请添加</td></tr>'
+    : data.products.map((p, i) => `<tr>
+        <td>${esc(p.code)}</td><td>${esc(p.name)}</td><td>${esc(p.unit)}</td>
+        <td><span class="${p.stock < 5 ? 'badge badge-red' : 'badge badge-green'}">${p.stock}</span></td>
+        <td><button class="btn btn-outline btn-xs" onclick="showEditModal('product',${i})">编辑</button> <button class="btn btn-danger btn-xs" onclick="deleteProduct(${i})">删除</button></td>
+      </tr>`).join('');
+  document.getElementById('productTable').innerHTML = rows;
+}
+
+function renderBOM() {
+  const data = getData();
+  const rows = data.bom.length === 0
+    ? '<tr><td colspan="6" class="empty-state">暂无BOM记录，请添加</td></tr>'
+    : data.bom.map((b, i) => {
+        const prod = data.products.find(p => p.code === b.productCode);
+        const mat = data.materials.find(m => m.code === b.materialCode);
+        return `<tr>
+          <td>${esc(b.productCode)}</td><td>${esc(prod ? prod.name : '—')}</td>
+          <td>${esc(b.materialCode)}</td><td>${esc(mat ? mat.name : '—')}</td>
+          <td>${b.quantity}</td>
+          <td><button class="btn btn-outline btn-xs" onclick="showEditModal('bom',${i})">编辑</button> <button class="btn btn-danger btn-xs" onclick="deleteBOM(${i})">删除</button></td>
+        </tr>`;
+      }).join('');
+  document.getElementById('bomTable').innerHTML = rows;
+}
+
+function renderProductIn() {
+  const data = getData();
+  const rows = data.productIn.length === 0
+    ? '<tr><td colspan="6" class="empty-state">暂无入库记录</td></tr>'
+    : [...data.productIn].reverse().map(r => `<tr>
+        <td>${r.time}</td><td>${esc(r.productCode)}</td><td>${esc(r.productName)}</td>
+        <td>${r.quantity}</td><td>${esc(r.operator)}</td><td>${esc(r.note)}</td>
+      </tr>`).join('');
+  document.getElementById('productInTable').innerHTML = rows;
+}
+
+function renderProductOut() {
+  const data = getData();
+  const rows = data.productOut.length === 0
+    ? '<tr><td colspan="6" class="empty-state">暂无出库记录</td></tr>'
+    : [...data.productOut].reverse().map(r => `<tr>
+        <td>${r.time}</td><td>${esc(r.productCode)}</td><td>${esc(r.productName)}</td>
+        <td>${r.quantity}</td><td>${esc(r.operator)}</td><td>${esc(r.note)}</td>
+      </tr>`).join('');
+  document.getElementById('productOutTable').innerHTML = rows;
+}
+
+function renderMaterialIn() {
+  const data = getData();
+  const rows = data.materialIn.length === 0
+    ? '<tr><td colspan="6" class="empty-state">暂无入库记录</td></tr>'
+    : [...data.materialIn].reverse().map(r => `<tr>
+        <td>${r.time}</td><td>${esc(r.materialCode)}</td><td>${esc(r.materialName)}</td>
+        <td>${r.quantity}</td><td>${esc(r.operator)}</td><td>${esc(r.note)}</td>
+      </tr>`).join('');
+  document.getElementById('materialInTable').innerHTML = rows;
+}
+
+function renderMaterialOut() {
+  const data = getData();
+  const rows = data.materialOut.length === 0
+    ? '<tr><td colspan="7" class="empty-state">暂无出库记录</td></tr>'
+    : [...data.materialOut].reverse().map(r => `<tr>
+        <td>${r.time}</td><td>${esc(r.materialCode)}</td><td>${esc(r.materialName)}</td>
+        <td>${r.quantity}</td><td>${esc(r.operator)}</td><td>${esc(r.note)}</td>
+        <td><span class="badge ${r.type === 'auto' ? 'badge-blue' : 'badge-red'}">${r.type === 'auto' ? '自动扣减' : '手动出库'}</span></td>
+      </tr>`).join('');
+  document.getElementById('materialOutTable').innerHTML = rows;
+}
+
+function populateSelects() {
+  const data = getData();
+  const prodOpts = data.products.map(p => `<option value="${esc(p.code)}">${esc(p.code)} - ${esc(p.name)}</option>`).join('');
+  const matOpts = data.materials.map(m => `<option value="${esc(m.code)}">${esc(m.code)} - ${esc(m.name)}</option>`).join('');
+
+  const prodSelects = ['bomProduct', 'piProduct', 'poProduct'];
+  const matSelects = ['bomMaterial', 'miMaterial', 'moMaterial'];
+
+  prodSelects.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { const val = el.value; el.innerHTML = prodOpts; if (prodOpts && val) el.value = val; }
+  });
+  matSelects.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { const val = el.value; el.innerHTML = matOpts; if (matOpts && val) el.value = val; }
+  });
+}
+
+// ==================== 配料操作 ====================
+function addMaterial() {
+  const code = document.getElementById('matCode').value.trim();
+  const name = document.getElementById('matName').value.trim();
+  const unit = document.getElementById('matUnit').value.trim();
+  const stock = parseInt(document.getElementById('matStock').value) || 0;
+
+  if (!code || !name) return alert('请输入货号和品名');
+  const data = getData();
+  if (data.materials.find(m => m.code === code)) return alert('该货号已存在');
+
+  data.materials.push({ code, name, unit, stock });
+  saveData(data);
+  addLog(`新增配料：${code} ${name}`);
+  document.getElementById('matCode').value = ''; document.getElementById('matName').value = ''; document.getElementById('matStock').value = '0';
+  renderAll();
+}
+
+function deleteMaterial(index) {
+  if (!confirm('确定删除此配料？相关BOM也将被删除。')) return;
+  const data = getData();
+  const m = data.materials[index];
+  data.bom = data.bom.filter(b => b.materialCode !== m.code);
+  data.materials.splice(index, 1);
+  saveData(data);
+  addLog(`删除配料：${m.code} ${m.name}`);
+  renderAll();
+}
+
+// ==================== 成品操作 ====================
+function addProduct() {
+  const code = document.getElementById('prodCode').value.trim();
+  const name = document.getElementById('prodName').value.trim();
+  const unit = document.getElementById('prodUnit').value.trim();
+  const stock = parseInt(document.getElementById('prodStock').value) || 0;
+
+  if (!code || !name) return alert('请输入货号和品名');
+  const data = getData();
+  if (data.products.find(p => p.code === code)) return alert('该货号已存在');
+
+  data.products.push({ code, name, unit, stock });
+  saveData(data);
+  addLog(`新增成品：${code} ${name}`);
+  document.getElementById('prodCode').value = ''; document.getElementById('prodName').value = ''; document.getElementById('prodStock').value = '0';
+  renderAll();
+}
+
+function deleteProduct(index) {
+  if (!confirm('确定删除此成品？相关BOM和记录也将被删除。')) return;
+  const data = getData();
+  const p = data.products[index];
+  data.bom = data.bom.filter(b => b.productCode !== p.code);
+  data.productIn = data.productIn.filter(r => r.productCode !== p.code);
+  data.productOut = data.productOut.filter(r => r.productCode !== p.code);
+  data.products.splice(index, 1);
+  saveData(data);
+  addLog(`删除成品：${p.code} ${p.name}`);
+  renderAll();
+}
+
+// ==================== BOM操作 ====================
+function addBOM() {
+  const productCode = document.getElementById('bomProduct').value;
+  const materialCode = document.getElementById('bomMaterial').value;
+  const quantity = parseFloat(document.getElementById('bomQty').value);
+
+  if (!productCode || !materialCode) return alert('请选择成品和配料');
+  if (!quantity || quantity <= 0) return alert('请输入有效的消耗数量');
+
+  const data = getData();
+  if (data.bom.find(b => b.productCode === productCode && b.materialCode === materialCode))
+    return alert('该BOM关系已存在，请先删除旧的');
+
+  data.bom.push({ productCode, materialCode, quantity });
+  saveData(data);
+  addLog(`新增BOM：${productCode} → ${materialCode} ×${quantity}`);
+  renderAll();
+}
+
+function deleteBOM(index) {
+  const data = getData();
+  const b = data.bom[index];
+  data.bom.splice(index, 1);
+  saveData(data);
+  addLog(`删除BOM：${b.productCode} → ${b.materialCode}`);
+  renderAll();
+}
+
+// ==================== 成品入库（自动扣减配料） ====================
+function onProductInSelect() {
+  const code = document.getElementById('piProduct').value;
+  const data = getData();
+  const bomItems = data.bom.filter(b => b.productCode === code);
+  if (bomItems.length === 0) {
+    document.getElementById('bomPreview').innerHTML = '<span style="color:#ff4d4f">该成品没有BOM清单，入库不会扣减配料</span>';
+    return;
+  }
+  const lines = bomItems.map(b => {
+    const mat = data.materials.find(m => m.code === b.materialCode);
+    const matName = mat ? mat.name : '未知';
+    const matStock = mat ? mat.stock : 0;
+    const color = matStock < b.quantity ? 'color:#ff4d4f' : '';
+    return `<span style="${color}">${b.materialCode} ${matName} — 每件消耗 ${b.quantity}，当前库存 ${matStock}</span>`;
+  }).join('<br>');
+  document.getElementById('bomPreview').innerHTML = '入库1件将扣减：<br>' + lines;
+}
+
+function productInbound() {
+  const productCode = document.getElementById('piProduct').value;
+  const quantity = parseInt(document.getElementById('piQty').value) || 0;
+  const operator = document.getElementById('piOperator').value.trim();
+  const note = document.getElementById('piNote').value.trim();
+  const skipBOM = document.getElementById('piSkipBOM').checked;
+
+  if (!productCode) return alert('请选择成品');
+  if (quantity <= 0) return alert('请输入有效的入库数量');
+
+  const data = getData();
+  const now = new Date().toLocaleString();
+  const prod = data.products.find(p => p.code === productCode);
+
+  if (!skipBOM) {
+    const bomItems = data.bom.filter(b => b.productCode === productCode);
+    const insufficient = [];
+    bomItems.forEach(b => {
+      const mat = data.materials.find(m => m.code === b.materialCode);
+      if (!mat || mat.stock < b.quantity * quantity) {
+        const need = b.quantity * quantity;
+        const have = mat ? mat.stock : 0;
+        insufficient.push(`${b.materialCode} ${mat ? mat.name : '未知'}：需要${need}，库存${have}`);
+      }
+    });
+
+    if (insufficient.length > 0) {
+      return alert('以下配料库存不足：\n' + insufficient.join('\n'));
+    }
+
+    bomItems.forEach(b => {
+      const mat = data.materials.find(m => m.code === b.materialCode);
+      const usedQty = b.quantity * quantity;
+      mat.stock -= usedQty;
+      data.materialOut.push({
+        time: now, materialCode: mat.code, materialName: mat.name,
+        quantity: usedQty, operator, note: `成品入库自动扣减：${productCode} ×${quantity}`, type: 'auto'
+      });
+    });
+
+    prod.stock += quantity;
+    data.productIn.push({
+      time: now, productCode, productName: prod.name,
+      quantity, operator, note
+    });
+    addLog(`成品入库：${productCode} ${prod.name} +${quantity}，自动扣减${bomItems.length}种配料`);
+  } else {
+    prod.stock += quantity;
+    data.productIn.push({
+      time: now, productCode, productName: prod.name,
+      quantity, operator, note: note ? note + ' (未扣减配料)' : '未扣减配料'
+    });
+    addLog(`成品入库：${productCode} ${prod.name} +${quantity}（未扣减配料）`);
+  }
+
+  saveData(data);
+  document.getElementById('piQty').value = '1'; document.getElementById('piNote').value = '';
+  document.getElementById('piSkipBOM').checked = false;
+  renderAll();
+}
+
+// ==================== 成品出库 ====================
+function onProductOutSelect() {
+  const code = document.getElementById('poProduct').value;
+  const data = getData();
+  const prod = data.products.find(p => p.code === code);
+  document.getElementById('poStockInfo').textContent = prod ? `当前库存：${prod.stock}` : '';
+}
+
+function productOutbound() {
+  const productCode = document.getElementById('poProduct').value;
+  const quantity = parseInt(document.getElementById('poQty').value) || 0;
+  const operator = document.getElementById('poOperator').value.trim();
+  const note = document.getElementById('poNote').value.trim();
+
+  if (!productCode) return alert('请选择成品');
+  if (quantity <= 0) return alert('请输入有效的出库数量');
+
+  const data = getData();
+  const prod = data.products.find(p => p.code === productCode);
+  if (prod.stock < quantity) return alert(`库存不足！当前库存：${prod.stock}`);
+
+  prod.stock -= quantity;
+  const now = new Date().toLocaleString();
+  data.productOut.push({
+    time: now, productCode, productName: prod.name,
+    quantity, operator, note
+  });
+
+  saveData(data);
+  addLog(`成品出库：${productCode} ${prod.name} -${quantity}`);
+  document.getElementById('poQty').value = '1'; document.getElementById('poNote').value = '';
+  renderAll();
+}
+
+// ==================== 配料入库 ====================
+function materialInbound() {
+  const materialCode = document.getElementById('miMaterial').value;
+  const quantity = parseInt(document.getElementById('miQty').value) || 0;
+  const operator = document.getElementById('miOperator').value.trim();
+  const note = document.getElementById('miNote').value.trim();
+
+  if (!materialCode) return alert('请选择配料');
+  if (quantity <= 0) return alert('请输入有效的入库数量');
+
+  const data = getData();
+  const mat = data.materials.find(m => m.code === materialCode);
+  mat.stock += quantity;
+
+  const now = new Date().toLocaleString();
+  data.materialIn.push({
+    time: now, materialCode, materialName: mat.name,
+    quantity, operator, note
+  });
+
+  saveData(data);
+  addLog(`配料入库：${materialCode} ${mat.name} +${quantity}`);
+  document.getElementById('miQty').value = '1'; document.getElementById('miNote').value = '';
+  renderAll();
+}
+
+// ==================== 配料出库（手动） ====================
+function materialOutbound() {
+  const materialCode = document.getElementById('moMaterial').value;
+  const quantity = parseInt(document.getElementById('moQty').value) || 0;
+  const operator = document.getElementById('moOperator').value.trim();
+  const note = document.getElementById('moNote').value.trim();
+
+  if (!materialCode) return alert('请选择配料');
+  if (quantity <= 0) return alert('请输入有效的出库数量');
+
+  const data = getData();
+  const mat = data.materials.find(m => m.code === materialCode);
+  if (mat.stock < quantity) return alert(`库存不足！当前库存：${mat.stock}`);
+
+  mat.stock -= quantity;
+  const now = new Date().toLocaleString();
+  data.materialOut.push({
+    time: now, materialCode, materialName: mat.name,
+    quantity, operator, note, type: 'manual'
+  });
+
+  saveData(data);
+  addLog(`配料出库：${materialCode} ${mat.name} -${quantity}`);
+  document.getElementById('moQty').value = '1'; document.getElementById('moNote').value = '';
+  renderAll();
+}
+
+// ==================== 编辑功能 ====================
+let editType = '';
+let editIndex = -1;
+
+function showEditModal(type, index) {
+  const data = getData();
+  editType = type;
+  editIndex = index;
+
+  let title = '', formHtml = '';
+
+  if (type === 'material') {
+    const m = data.materials[index];
+    title = '编辑配料';
+    formHtml = `
+      <div class="form-row">
+        <div class="form-group"><label>货号</label><input id="editCode" value="${esc(m.code)}"></div>
+        <div class="form-group"><label>品名</label><input id="editName" value="${esc(m.name)}"></div>
+        <div class="form-group"><label>单位</label><input id="editUnit" value="${esc(m.unit)}" style="width:80px"></div>
+        <div class="form-group"><label>当前库存</label><input id="editStock" type="number" value="${m.stock}" style="width:100px"></div>
+      </div>`;
+  } else if (type === 'product') {
+    const p = data.products[index];
+    title = '编辑成品';
+    formHtml = `
+      <div class="form-row">
+        <div class="form-group"><label>货号</label><input id="editCode" value="${esc(p.code)}"></div>
+        <div class="form-group"><label>品名</label><input id="editName" value="${esc(p.name)}"></div>
+        <div class="form-group"><label>单位</label><input id="editUnit" value="${esc(p.unit)}" style="width:80px"></div>
+        <div class="form-group"><label>当前库存</label><input id="editStock" type="number" value="${p.stock}" style="width:100px"></div>
+      </div>`;
+  } else if (type === 'bom') {
+    const b = data.bom[index];
+    const prodOpts = data.products.map(p => `<option value="${esc(p.code)}" ${p.code === b.productCode ? 'selected' : ''}>${esc(p.code)} - ${esc(p.name)}</option>`).join('');
+    const matOpts = data.materials.map(m => `<option value="${esc(m.code)}" ${m.code === b.materialCode ? 'selected' : ''}>${esc(m.code)} - ${esc(m.name)}</option>`).join('');
+    title = '编辑BOM';
+    formHtml = `
+      <div class="form-row">
+        <div class="form-group"><label>成品</label><select id="editBomProduct" style="width:180px">${prodOpts}</select></div>
+        <div class="form-group"><label>配料</label><select id="editBomMaterial" style="width:180px">${matOpts}</select></div>
+        <div class="form-group"><label>消耗数量</label><input id="editBomQty" type="number" step="0.01" value="${b.quantity}" style="width:100px"></div>
+      </div>`;
+  }
+
+  document.getElementById('editModalTitle').textContent = title;
+  document.getElementById('editForm').innerHTML = formHtml;
+  document.getElementById('editModal').classList.add('show');
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('show');
+  editType = '';
+  editIndex = -1;
+}
+
+function saveEdit() {
+  const data = getData();
+
+  if (editType === 'material') {
+    const m = data.materials[editIndex];
+    const oldCode = m.code;
+    const newCode = document.getElementById('editCode').value.trim();
+    const newName = document.getElementById('editName').value.trim();
+    const newUnit = document.getElementById('editUnit').value.trim();
+    const newStock = parseInt(document.getElementById('editStock').value) || 0;
+    if (!newCode || !newName) return alert('货号和品名不能为空');
+    if (newCode !== oldCode && data.materials.find(x => x.code === newCode)) return alert('该货号已存在');
+    m.code = newCode; m.name = newName; m.unit = newUnit; m.stock = newStock;
+    if (newCode !== oldCode) {
+      // update BOM references
+      data.bom.forEach(b => { if (b.materialCode === oldCode) b.materialCode = newCode; });
+      // update log record codes
+      data.materialIn.forEach(r => { if (r.materialCode === oldCode) r.materialCode = newCode; });
+      data.materialOut.forEach(r => { if (r.materialCode === oldCode) r.materialCode = newCode; });
+    }
+    addLog(`编辑配料：${newCode} ${newName}`);
+  } else if (editType === 'product') {
+    const p = data.products[editIndex];
+    const oldCode = p.code;
+    const newCode = document.getElementById('editCode').value.trim();
+    const newName = document.getElementById('editName').value.trim();
+    const newUnit = document.getElementById('editUnit').value.trim();
+    const newStock = parseInt(document.getElementById('editStock').value) || 0;
+    if (!newCode || !newName) return alert('货号和品名不能为空');
+    if (newCode !== oldCode && data.products.find(x => x.code === newCode)) return alert('该货号已存在');
+    p.code = newCode; p.name = newName; p.unit = newUnit; p.stock = newStock;
+    if (newCode !== oldCode) {
+      data.bom.forEach(b => { if (b.productCode === oldCode) b.productCode = newCode; });
+      data.productIn.forEach(r => { if (r.productCode === oldCode) r.productCode = newCode; });
+      data.productOut.forEach(r => { if (r.productCode === oldCode) r.productCode = newCode; });
+    }
+    addLog(`编辑成品：${newCode} ${newName}`);
+  } else if (editType === 'bom') {
+    const b = data.bom[editIndex];
+    const newProductCode = document.getElementById('editBomProduct').value;
+    const newMaterialCode = document.getElementById('editBomMaterial').value;
+    const newQty = parseFloat(document.getElementById('editBomQty').value);
+    if (!newProductCode || !newMaterialCode) return alert('请选择成品和配料');
+    if (!newQty || newQty <= 0) return alert('请输入有效的消耗数量');
+    if ((newProductCode !== b.productCode || newMaterialCode !== b.materialCode) &&
+        data.bom.find(x => x.productCode === newProductCode && x.materialCode === newMaterialCode))
+      return alert('该BOM关系已存在');
+    b.productCode = newProductCode; b.materialCode = newMaterialCode; b.quantity = newQty;
+    addLog(`编辑BOM：${newProductCode} → ${newMaterialCode} ×${newQty}`);
+  }
+
+  saveData(data);
+  closeEditModal();
+  renderAll();
+}
+
+// ==================== 仪表盘操作记录删除 ====================
+function restoreSnapshot(index) {
+  const data = getData();
+  const log = data.logs[index];
+  if (!log.snapshot) return alert('该记录没有可回溯的数据快照');
+  if (!confirm(`确定回溯到以下操作完成后的状态？\n\n[${log.time}] ${log.msg}\n\n当前所有数据将被替换为该时间点的快照。此操作不可撤销！`)) return;
+
+  // 用快照覆盖当前数据
+  const snap = log.snapshot;
+  data.materials = JSON.parse(JSON.stringify(snap.materials));
+  data.products = JSON.parse(JSON.stringify(snap.products));
+  data.bom = JSON.parse(JSON.stringify(snap.bom));
+  data.productIn = JSON.parse(JSON.stringify(snap.productIn));
+  data.productOut = JSON.parse(JSON.stringify(snap.productOut));
+  data.materialIn = JSON.parse(JSON.stringify(snap.materialIn));
+  data.materialOut = JSON.parse(JSON.stringify(snap.materialOut));
+
+  saveData(data);
+  renderAll();
+}
+
+function deleteLog(index) {
+  const data = getData();
+  data.logs.splice(index, 1);
+  saveData(data);
+  renderAll();
+}
+
+// ==================== 面板切换 ====================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById(`panel-${name}`).classList.add('active');
+  renderAll();
+}
+
+// ==================== 数据导入导出 ====================
+function exportData() {
+  const data = getData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `warehouse_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportExcel() {
+  const data = getData();
+  const wb = XLSX.utils.book_new();
+
+  // 配料表
+  const matData = [['货号', '品名', '单位', '当前库存']];
+  data.materials.forEach(m => matData.push([m.code, m.name, m.unit, m.stock]));
+  const matWs = XLSX.utils.aoa_to_sheet(matData);
+  matWs['!cols'] = [{wch:12},{wch:16},{wch:8},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, matWs, '配料');
+
+  // 成品表
+  const prodData = [['货号', '品名', '单位', '当前库存']];
+  data.products.forEach(p => prodData.push([p.code, p.name, p.unit, p.stock]));
+  const prodWs = XLSX.utils.aoa_to_sheet(prodData);
+  prodWs['!cols'] = [{wch:12},{wch:16},{wch:8},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, prodWs, '成品');
+
+  // BOM表
+  const bomData = [['成品货号', '成品品名', '配料货号', '配料品名', '消耗数量']];
+  data.bom.forEach(b => {
+    const prod = data.products.find(p => p.code === b.productCode);
+    const mat = data.materials.find(m => m.code === b.materialCode);
+    bomData.push([b.productCode, prod ? prod.name : '', b.materialCode, mat ? mat.name : '', b.quantity]);
+  });
+  const bomWs = XLSX.utils.aoa_to_sheet(bomData);
+  bomWs['!cols'] = [{wch:14},{wch:16},{wch:14},{wch:16},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, bomWs, 'BOM');
+
+  // 成品入库记录
+  const piData = [['时间', '货号', '品名', '数量', '操作人', '备注']];
+  data.productIn.forEach(r => piData.push([r.time, r.productCode, r.productName, r.quantity, r.operator, r.note]));
+  const piWs = XLSX.utils.aoa_to_sheet(piData);
+  piWs['!cols'] = [{wch:20},{wch:12},{wch:16},{wch:8},{wch:10},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, piWs, '成品入库');
+
+  // 成品出库记录
+  const poData = [['时间', '货号', '品名', '数量', '操作人', '备注']];
+  data.productOut.forEach(r => poData.push([r.time, r.productCode, r.productName, r.quantity, r.operator, r.note]));
+  const poWs = XLSX.utils.aoa_to_sheet(poData);
+  poWs['!cols'] = [{wch:20},{wch:12},{wch:16},{wch:8},{wch:10},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, poWs, '成品出库');
+
+  // 配料入库记录
+  const miData = [['时间', '货号', '品名', '数量', '操作人', '备注']];
+  data.materialIn.forEach(r => miData.push([r.time, r.materialCode, r.materialName, r.quantity, r.operator, r.note]));
+  const miWs = XLSX.utils.aoa_to_sheet(miData);
+  miWs['!cols'] = [{wch:20},{wch:12},{wch:16},{wch:8},{wch:10},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, miWs, '配料入库');
+
+  // 配料出库记录
+  const moData = [['时间', '货号', '品名', '数量', '操作人', '备注', '类型']];
+  data.materialOut.forEach(r => moData.push([r.time, r.materialCode, r.materialName, r.quantity, r.operator, r.note, r.type === 'auto' ? '自动扣减' : '手动出库']));
+  const moWs = XLSX.utils.aoa_to_sheet(moData);
+  moWs['!cols'] = [{wch:20},{wch:12},{wch:16},{wch:8},{wch:10},{wch:16},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, moWs, '配料出库');
+
+  XLSX.writeFile(wb, `warehouse_export_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('恢复数据将覆盖当前所有数据，确定继续？')) { e.target.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.materials || !data.products || !data.bom) throw new Error('数据格式不正确');
+      saveData(data);
+      addLog('从备份恢复数据');
+      renderAll();
+      alert('数据恢复成功！');
+    } catch (err) {
+      alert('数据格式错误，无法恢复');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function resetAll() {
+  if (!confirm('确定清空所有数据？此操作不可恢复！')) return;
+  if (!confirm('再次确认：清空所有配料、成品、BOM及出入库记录？')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderAll();
+}
+
+// ==================== 工具函数 ====================
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ==================== 初始化 ====================
+renderAll();
+</script>
+</body>
+</html>
